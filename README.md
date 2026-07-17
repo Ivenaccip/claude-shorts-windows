@@ -1,238 +1,249 @@
-# claude-shorts
+# claude-shorts-windows
 
 ![claude-shorts header](claude-shorts-header.jpeg)
 
-Interactive longform-to-shortform video creator powered by [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Extracts viral-ready vertical clips from long videos using Claude as the intelligent orchestrator with Remotion-rendered premium animated captions.
+Creador interactivo de videos cortos a partir de videos largos, impulsado por [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Extrae clips verticales listos para viralizar usando Claude como orquestador inteligente, con subtítulos animados premium renderizados en Remotion.
 
-## How It Works
+> **Este es un fork adaptado a Windows** de [claude-shorts](https://github.com/AgriciDaniel/claude-shorts) de Agrici Daniel. Corre **nativo en Windows 10/11** (Git Bash + PowerShell), sin WSL: instalación en un solo paso, skill enlazada por junction (se actualiza con `git pull`) y correcciones de rutas MSYS, layout de venv y finales de línea.
 
-Claude Code guides you through a 10-step interactive pipeline:
+## Cómo funciona
 
-1. **Preflight** - Validates input video, checks disk space, detects GPU
-2. **Transcribe** - GPU-accelerated transcription with word-level timestamps (faster-whisper)
-3. **Detect Content** - Auto-classifies: talking-head, screen recording, or podcast
-4. **Analyze** - Claude reads the full transcript and scores 8-12 candidate segments
-5. **Present** - Shows candidates in a formatted table with scores, hooks, and rationale
-6. **Approve** - You pick segments, adjust timecodes, choose caption style and platform
-7. **Snap Boundaries** - Aligns cut points to word boundaries, sentence endings, and audio silences
-8. **Prepare** - Extracts clips (FFmpeg stream copy) and computes reframe coordinates
-9. **Render** - Remotion renders 1080x1920 vertical video with animated captions
-10. **Export** - Platform-optimized encoding (YouTube Shorts, TikTok, Instagram Reels)
+Claude Code te guía por un pipeline interactivo de 10 pasos:
 
-## Demo
+1. **Preflight** — Valida el video de entrada, revisa espacio en disco, detecta GPU
+2. **Transcripción** — Transcripción acelerada por GPU con timestamps por palabra (faster-whisper)
+3. **Detección de contenido** — Clasifica automáticamente: talking-head, grabación de pantalla o podcast
+4. **Análisis** — Claude lee el transcript completo y puntúa de 8 a 12 segmentos candidatos
+5. **Presentación** — Muestra los candidatos en una tabla con puntajes, hooks y justificación
+6. **Aprobación** — Eliges segmentos, ajustas los tiempos, seleccionas estilo de subtítulos y plataforma
+7. **Ajuste de cortes** — Alinea los puntos de corte a límites de palabra, finales de oración y silencios
+8. **Preparación** — Extrae los clips (FFmpeg stream copy) y calcula las coordenadas de reencuadre
+9. **Render** — Remotion renderiza video vertical 1080x1920 con subtítulos animados
+10. **Exportación** — Codificación optimizada por plataforma (YouTube Shorts, TikTok, Instagram Reels)
 
-> Demo video/GIF coming soon — showing the full pipeline from input to rendered short with Bold-style captions.
+## Características
 
-## Features
+- **Puntuación de segmentos con Claude** — Rúbrica de 5 dimensiones (fuerza del hook, coherencia, emoción, densidad de valor, remate) con pesos. Sin heurísticas de palabras clave: Claude entiende arcos narrativos.
+- **3 estilos de subtítulos** — Bold (MAYÚSCULAS, resaltado amarillo), Bounce (rebote con spring, colores rotativos), Clean (fade-in minimalista)
+- **Seguimiento de cursor** — En grabaciones de pantalla, detecta el cursor por diferencia de frames y panea el recorte suavemente para seguirlo
+- **Cortes conscientes del audio** — Nunca corta a media palabra ni a media oración. Extiende hasta finales naturales de oración y puntos de silencio.
+- **Render con Remotion** — Render de una sola pasada basado en React con animaciones spring, resaltado karaoke por palabra, texto de hook y barras de progreso
+- **Aceleración por GPU** — CUDA para transcripción, NVENC para exportación (con fallback limpio a CPU)
 
-- **Claude-powered segment scoring** - 5-dimension rubric (hook strength, coherence, emotion, value density, payoff) with weighted scoring. No heuristic keyword matching - Claude understands narrative arcs.
-- **3 caption styles** - Bold (ALL CAPS, yellow highlights), Bounce (bouncy spring, rotating colors), Clean (minimal fade-in)
-- **Cursor tracking** - For screen recordings, detects mouse cursor via frame differencing and smoothly pans the crop to follow it
-- **Audio-aware boundary snapping** - Never cuts mid-word or mid-sentence. Extends to natural sentence endings and silence points.
-- **Remotion rendering** - React-based single-pass rendering with spring animations, word-level karaoke highlighting, hook text overlays, and progress bars
-- **GPU acceleration** - CUDA for transcription, NVENC for export encoding (falls back to CPU gracefully)
+## Requisitos
 
-## Prerequisites
-
-- **FFmpeg** (system package)
+- **Windows 10/11** con [Git para Windows](https://git-scm.com/download/win) (incluye Git Bash)
+- **FFmpeg** — `winget install --id Gyan.FFmpeg`
+- **jq** — `winget install --id jqlang.jq`
 - **Python 3.10+**
 - **Node.js 18+**
 - **Claude Code** (CLI)
-- **NVIDIA GPU** recommended (for CUDA transcription + NVENC encoding)
+- **GPU NVIDIA** recomendada (transcripción CUDA + codificación NVENC; sin GPU funciona en CPU)
 
-## Installation
+## Instalación
 
-```bash
-# Clone the repository
-git clone https://github.com/AgriciDaniel/claude-shorts.git
-cd claude-shorts
+```powershell
+# Clona el repositorio
+git clone https://github.com/Ivenaccip/claude-shorts-windows.git
+cd claude-shorts-windows
 
-# Install Python + Node.js dependencies
-bash setup.sh
-
-# Install as a Claude Code skill
-bash install.sh
+# Un solo paso: instala TODO (venv de Python, Remotion, config y la skill)
+powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
-### Windows
+Eso es todo. No hay segundo paso de instalación.
 
-claude-shorts requires Unix tools (FFmpeg, bash). On Windows, use [WSL 2](https://learn.microsoft.com/en-us/windows/wsl/install):
+### Qué hace `setup.ps1`
+
+- Verifica las dependencias de sistema (FFmpeg, jq) y sugiere el comando `winget` exacto si falta algo
+- Crea un entorno virtual de Python en `%USERPROFILE%\.shorts-skill\` e instala dependencias **pinneadas** (`faster-whisper`, `mediapipe`, `numpy`, `opencv-python`)
+- Instala PyTorch (variante CUDA si detecta `nvidia-smi`, CPU si no)
+- Ejecuta `npm ci` en `remotion/` (solo cuando cambia el lockfile — reproducible e idempotente)
+- Escribe la configuración central en `%APPDATA%\claude-shorts\env.json`
+- Instala la skill como **junction**: `~/.claude/skills/shorts` → este repo
+
+Es **idempotente**: puedes correrlo las veces que quieras sin romper nada.
+
+### Actualizar
+
+Como la skill es un enlace al repo (no una copia), actualizar es solo:
 
 ```bash
-# Inside WSL
-git clone https://github.com/AgriciDaniel/claude-shorts.git
-cd claude-shorts
-bash setup.sh
-bash install.sh
+git pull
 ```
 
-### What `setup.sh` does
+Si el `package-lock.json` o los `requirements.txt` cambiaron, vuelve a correr `setup.ps1` (detecta los cambios y solo reinstala lo necesario).
 
-- Creates a Python virtual environment at `~/.shorts-skill/` (or reuses `~/.video-skill/` if it exists)
-- Installs `faster-whisper`, `mediapipe`, `numpy`, `opencv-python`, and PyTorch (CUDA or CPU variant)
-- Runs `npm install` in the `remotion/` directory
-- Checks for system dependencies (FFmpeg, jq)
+### Desinstalar
 
-## Usage
+```powershell
+powershell -ExecutionPolicy Bypass -File uninstall.ps1
+```
 
-In Claude Code, invoke the skill:
+Borra solo el enlace de la skill y la configuración; el repo y el venv quedan intactos.
+
+## Uso
+
+En Claude Code, invoca la skill:
 
 ```
 /shorts
 ```
 
-Then provide your video file when prompted. Claude will:
+Luego proporciona tu archivo de video cuando te lo pida. Claude va a:
 
-1. Transcribe the video
-2. Present scored segment candidates
-3. Ask which segments to render, caption style, and target platform
-4. Render and export the final shorts
+1. Transcribir el video
+2. Presentar los segmentos candidatos con su puntaje
+3. Preguntarte qué segmentos renderizar, estilo de subtítulos y plataforma destino
+4. Renderizar y exportar los shorts finales
 
-### Example Interaction
-
-```
-You: /shorts ~/Videos/my-talk.mp4
-Claude: [Transcribes, detects content type, scores segments]
-
-| # | Time          | Dur  | Score | Hook                           |
-|---|---------------|------|-------|--------------------------------|
-| 1 | 04:22 - 05:01 | 39s  | 87    | "Nobody talks about this..."  |
-| 2 | 12:45 - 13:28 | 43s  | 82    | "Here's the exact framework." |
-| 3 | 08:11 - 08:52 | 41s  | 79    | "I tested this for 6 months." |
-
-Claude: Which segments? Caption style? Platform?
-You: 1 and 3, bounce style, youtube
-
-Claude: [Snaps boundaries, extracts clips, renders, exports]
-Output: shorts/short_01_yt.mp4, shorts/short_03_yt.mp4
-```
-
-## Project Structure
+### Ejemplo de interacción
 
 ```
-claude-shorts/
-├── SKILL.md                           # 10-step interactive pipeline (Claude Code skill)
-├── CLAUDE.md                          # Project-level instructions
-├── install.sh                         # Install to ~/.claude/skills/
-├── setup.sh                           # Python + Node dependency installer
+Tú: /shorts C:\Videos\mi-charla.mp4
+Claude: [Transcribe, detecta el tipo de contenido, puntúa segmentos]
+
+| # | Tiempo        | Dur  | Puntaje | Hook                            |
+|---|---------------|------|---------|---------------------------------|
+| 1 | 04:22 - 05:01 | 39s  | 87      | "Nadie habla de esto..."        |
+| 2 | 12:45 - 13:28 | 43s  | 82      | "Este es el framework exacto."  |
+| 3 | 08:11 - 08:52 | 41s  | 79      | "Probé esto durante 6 meses."   |
+
+Claude: ¿Qué segmentos? ¿Estilo de subtítulos? ¿Plataforma?
+Tú: 1 y 3, estilo bounce, youtube
+
+Claude: [Ajusta cortes, extrae clips, renderiza, exporta]
+Salida: shorts/short_01_yt.mp4, shorts/short_03_yt.mp4
+```
+
+## Estructura del proyecto
+
+```
+claude-shorts-windows/
+├── SKILL.md                           # Pipeline interactivo de 10 pasos (skill de Claude Code)
+├── CLAUDE.md                          # Instrucciones a nivel de proyecto
+├── setup.ps1                          # Instalador único e idempotente (Windows)
+├── uninstall.ps1                      # Desinstalador (borra solo el enlace y la config)
 │
 ├── scripts/
-│   ├── transcribe.py                  # faster-whisper GPU transcription
-│   ├── detect_content.py              # MediaPipe content type classifier
-│   ├── compute_reframe.py             # Face tracking + cursor tracking + crop
-│   ├── snap_boundaries.py             # Audio-aware boundary snapping
-│   ├── preflight.sh                   # Input validation + disk space check
-│   ├── detect_gpu.sh                  # NVIDIA NVENC detection
-│   └── export.sh                      # Platform-specific FFmpeg encoding
+│   ├── transcribe.py                  # Transcripción GPU con faster-whisper
+│   ├── detect_content.py              # Clasificador de tipo de contenido (MediaPipe)
+│   ├── compute_reframe.py             # Seguimiento de rostro + cursor + recorte
+│   ├── snap_boundaries.py             # Ajuste de cortes consciente del audio
+│   ├── preflight.sh                   # Validación de entrada + espacio en disco
+│   ├── detect_gpu.sh                  # Detección de NVENC (NVIDIA)
+│   └── export.sh                      # Codificación FFmpeg por plataforma
 │
 ├── remotion/
 │   ├── package.json                   # Remotion v4 + React 19 + Zod
-│   ├── render.mjs                     # Bundle-once-render-many orchestrator
+│   ├── render.mjs                     # Orquestador bundle-once-render-many
 │   ├── remotion.config.ts
 │   └── src/
-│       ├── Root.tsx                   # Composition registry
-│       ├── ShortVideo.tsx             # Main composition
-│       ├── types.ts                   # Zod schemas for props
+│       ├── Root.tsx                   # Registro de composiciones
+│       ├── ShortVideo.tsx             # Composición principal
+│       ├── types.ts                   # Esquemas Zod para las props
 │       ├── components/
-│       │   ├── VideoFrame.tsx         # Reframed video with animated crop pan
-│       │   ├── Captions.tsx           # Style dispatcher
-│       │   ├── BoldCaptions.tsx        # Bold ALL CAPS, pop-in spring
-│       │   ├── BounceCaptions.tsx     # Bouncy scale, bright colors
-│       │   ├── CleanCaptions.tsx      # Minimal fade-in
-│       │   ├── HookOverlay.tsx        # First 3.5s hook text
-│       │   └── ProgressBar.tsx        # Bottom progress indicator
+│       │   ├── VideoFrame.tsx         # Video reencuadrado con paneo animado
+│       │   ├── Captions.tsx           # Selector de estilo
+│       │   ├── BoldCaptions.tsx       # MAYÚSCULAS bold, spring pop-in
+│       │   ├── BounceCaptions.tsx     # Escala con rebote, colores vivos
+│       │   ├── CleanCaptions.tsx      # Fade-in minimalista
+│       │   ├── HookOverlay.tsx        # Texto de hook (primeros 3.5s)
+│       │   └── ProgressBar.tsx        # Barra de progreso inferior
 │       ├── hooks/
-│       │   └── useCaptionPages.ts     # @remotion/captions TikTok-style pages
+│       │   └── useCaptionPages.ts     # Páginas estilo TikTok (@remotion/captions)
 │       └── styles/
-│           ├── fonts.ts               # @font-face declarations
-│           └── theme.ts               # Color palettes per style
+│           ├── fonts.ts               # Declaraciones @font-face
+│           └── theme.ts               # Paletas de color por estilo
 │
 └── references/
-    ├── scoring-rubric.md              # 5-dimension scoring criteria
-    ├── caption-styles.md              # Visual specs + spring configs
-    ├── platform-specs.md              # YouTube/TikTok/Instagram encoding
-    └── remotion-patterns.md           # Remotion best practices
+    ├── scoring-rubric.md              # Criterios de puntuación (5 dimensiones)
+    ├── caption-styles.md              # Especificaciones visuales + configs de spring
+    ├── platform-specs.md              # Codificación YouTube/TikTok/Instagram
+    └── remotion-patterns.md           # Buenas prácticas de Remotion
 ```
 
-## Caption Styles
+## Estilos de subtítulos
 
-| Style | Font | Animation | Best For |
-|-------|------|-----------|----------|
-| **Bold** | Montserrat Bold | Pop-in spring, yellow active word | Business, education |
-| **Bounce** | Bangers | Bouncy scale 70-120-100%, rotating colors | Entertainment, energy |
-| **Clean** | Inter Bold | Fade-in opacity, white + shadow | Professional, interviews |
+| Estilo | Fuente | Animación | Ideal para |
+|--------|--------|-----------|------------|
+| **Bold** | Montserrat Bold | Spring pop-in, palabra activa en amarillo | Negocios, educación |
+| **Bounce** | Bangers | Escala con rebote 70-120-100%, colores rotativos | Entretenimiento, energía |
+| **Clean** | Inter Bold | Fade-in de opacidad, blanco + sombra | Profesional, entrevistas |
 
-## Platform Export Specs
+## Especificaciones de exportación por plataforma
 
-| Platform | Codec | Bitrate | Audio |
-|----------|-------|---------|-------|
+| Plataforma | Códec | Bitrate | Audio |
+|------------|-------|---------|-------|
 | **YouTube Shorts** | H.264 High 4.2 | 12 Mbps | AAC 192k |
 | **TikTok** | H.264 | CRF 18, -preset slow | AAC 128k |
-| **Instagram Reels** | H.264 High 4.2 | 4.5 Mbps (max 5000k) | AAC 128k |
+| **Instagram Reels** | H.264 High 4.2 | 4.5 Mbps (máx 5000k) | AAC 128k |
 
-## Content Type Strategies
+## Estrategias por tipo de contenido
 
-| Content Type | Reframe Strategy | Zoom |
-|--------------|-----------------|------|
-| **Talking-head** | Face-tracked center crop (MediaPipe) | 9:16 exact |
-| **Screen recording** | Cursor-tracked pan with moderate zoom | 55% of source width |
-| **Podcast** | Dominant speaker tracking | 9:16 exact |
+| Tipo de contenido | Estrategia de reencuadre | Zoom |
+|-------------------|--------------------------|------|
+| **Talking-head** | Recorte centrado con seguimiento de rostro (MediaPipe) | 9:16 exacto |
+| **Grabación de pantalla** | Paneo con seguimiento de cursor y zoom moderado | 55% del ancho original |
+| **Podcast** | Seguimiento del hablante dominante | 9:16 exacto |
 
-## Dependencies
+## Dependencias
 
-### Python (installed via `setup.sh`)
-- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) - GPU-accelerated Whisper
-- [mediapipe](https://mediapipe.dev/) - Face detection for content classification + reframing
-- [numpy](https://numpy.org/) - Array operations for cursor tracking smoothing
-- [opencv-python](https://opencv.org/) - Frame differencing for cursor detection
+### Python (instaladas por `setup.ps1`)
+- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) — Whisper acelerado por GPU
+- [mediapipe](https://mediapipe.dev/) — Detección de rostros para clasificación y reencuadre
+- [numpy](https://numpy.org/) — Operaciones de arrays para suavizar el seguimiento de cursor
+- [opencv-python](https://opencv.org/) — Diferencia de frames para detección de cursor
 
-### Node.js (installed via `setup.sh`)
-- [Remotion v4](https://remotion.dev/) - React-based video rendering
-- [@remotion/captions](https://remotion.dev/docs/captions) - TikTok-style word-level captions
-- [React 19](https://react.dev/) - Component framework
-- [Zod](https://zod.dev/) - Runtime type validation for props
+### Node.js (instaladas por `setup.ps1`)
+- [Remotion v4](https://remotion.dev/) — Render de video basado en React
+- [@remotion/captions](https://remotion.dev/docs/captions) — Subtítulos por palabra estilo TikTok
+- [React 19](https://react.dev/) — Framework de componentes
+- [Zod](https://zod.dev/) — Validación de tipos en runtime para las props
 
-### Fonts
+### Fuentes
 
-Caption fonts are bundled from Google Fonts under the [SIL Open Font License](remotion/public/fonts/OFL.txt):
-- Montserrat Bold (Bold style)
-- Bangers Regular (Bounce style)
-- Inter Bold (Clean style)
+Las fuentes de los subtítulos vienen de Google Fonts bajo la [SIL Open Font License](remotion/public/fonts/OFL.txt):
+- Montserrat Bold (estilo Bold)
+- Bangers Regular (estilo Bounce)
+- Inter Bold (estilo Clean)
 
-### System
-- [FFmpeg](https://ffmpeg.org/) - Audio extraction, segment cutting, export encoding
-- [jq](https://jqlang.github.io/jq/) - JSON processing in shell scripts
+### Sistema
+- [FFmpeg](https://ffmpeg.org/) — Extracción de audio, corte de segmentos, codificación de exportación
+- [jq](https://jqlang.github.io/jq/) — Procesamiento de JSON en scripts de shell
 
-## How Segment Scoring Works
+## Cómo funciona la puntuación de segmentos
 
-Claude scores each candidate on 5 weighted dimensions:
+Claude puntúa cada candidato en 5 dimensiones con pesos:
 
-| Dimension | Weight | What Claude Looks For |
-|-----------|--------|----------------------|
-| Hook Strength | 0.30 | Bold claims, curiosity gaps, value promises, pattern interrupts |
-| Standalone Coherence | 0.25 | Makes complete sense without any context from the rest of the video |
-| Emotional Intensity | 0.20 | Strong opinions, surprise reveals, humor, passion |
-| Value Density | 0.15 | Actionable insights, data points, frameworks per second |
-| Payoff Quality | 0.10 | Satisfying conclusion - punchline, reveal, call-to-action |
+| Dimensión | Peso | Qué busca Claude |
+|-----------|------|------------------|
+| Fuerza del hook | 0.30 | Afirmaciones audaces, brechas de curiosidad, promesas de valor, quiebres de patrón |
+| Coherencia independiente | 0.25 | Se entiende completo sin contexto del resto del video |
+| Intensidad emocional | 0.20 | Opiniones fuertes, revelaciones sorpresa, humor, pasión |
+| Densidad de valor | 0.15 | Insights accionables, datos, frameworks por segundo |
+| Calidad del remate | 0.10 | Conclusión satisfactoria: punchline, revelación, llamado a la acción |
 
-Final score = weighted sum, scale 0-100. Minimum threshold: 60.
+Puntaje final = suma ponderada, escala 0-100. Umbral mínimo: 60.
 
-## Support
+## Soporte
 
-- **Issues**: [GitHub Issues](https://github.com/AgriciDaniel/claude-shorts/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/AgriciDaniel/claude-shorts/discussions)
+- **Issues**: [GitHub Issues](https://github.com/Ivenaccip/claude-shorts-windows/issues)
+- **Proyecto original** (macOS/Linux): [AgriciDaniel/claude-shorts](https://github.com/AgriciDaniel/claude-shorts)
 
-## License
+## Licencia
 
 [MIT](LICENSE)
 
 ---
 
-## Author
+## Créditos
 
-Built by [Agrici Daniel](https://agricidaniel.com/about) - AI Workflow Architect.
+Proyecto original creado por [Agrici Daniel](https://agricidaniel.com/about) — AI Workflow Architect.
 
-- [Blog](https://agricidaniel.com/blog) - Deep dives on AI marketing automation
-- [AI Marketing Hub](https://www.skool.com/ai-marketing-hub) - Free community, 2,800+ members
-- [YouTube](https://www.youtube.com/@AgriciDaniel) - Tutorials and demos
-- [All open-source tools](https://github.com/AgriciDaniel)
+- [Blog](https://agricidaniel.com/blog) — Análisis a fondo sobre automatización de marketing con IA
+- [AI Marketing Hub](https://www.skool.com/ai-marketing-hub) — Comunidad gratuita, más de 2,800 miembros
+- [YouTube](https://www.youtube.com/@AgriciDaniel) — Tutoriales y demos
+- [Todas sus herramientas open-source](https://github.com/AgriciDaniel)
+
+Adaptación a Windows por [Ivenaccip](https://github.com/Ivenaccip).

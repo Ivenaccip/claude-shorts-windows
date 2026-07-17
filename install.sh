@@ -31,8 +31,19 @@ for f in "$SCRIPT_DIR"/references/*.md; do
 done
 
 # Copy Remotion project (excluding node_modules)
-rsync -a --exclude='node_modules' --exclude='.remotion' \
-    "$SCRIPT_DIR/remotion/" "$SKILL_DIR/remotion/"
+if command -v rsync >/dev/null 2>&1; then
+    rsync -a --exclude='node_modules' --exclude='.remotion' \
+        "$SCRIPT_DIR/remotion/" "$SKILL_DIR/remotion/"
+else
+    # Fallback when rsync isn't available (e.g. native Windows/Git Bash)
+    mkdir -p "$SKILL_DIR/remotion"
+    (cd "$SCRIPT_DIR/remotion" && find . -type f \
+        -not -path './node_modules/*' -not -path './.remotion/*' \
+        -print0) | while IFS= read -r -d '' f; do
+        mkdir -p "$SKILL_DIR/remotion/$(dirname "$f")"
+        cp "$SCRIPT_DIR/remotion/$f" "$SKILL_DIR/remotion/$f"
+    done
+fi
 
 echo ""
 echo "Installed to: $SKILL_DIR"

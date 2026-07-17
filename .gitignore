@@ -40,3 +40,10 @@ Thumbs.db
 # Temporary / intermediate files
 *.wav
 *.tmp
+
+# Render job artifacts (per-render inputs/outputs)
+remotion/public/job-*/
+remotion/src/props.json
+
+# Test videos at repo root
+/*.mp4

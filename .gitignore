@@ -43,7 +43,9 @@ Thumbs.db
 
 # Render job artifacts (per-render inputs/outputs)
 remotion/public/job-*/
-remotion/src/props.json
+# NOTE: remotion/src/props.json IS tracked (Root.tsx imports it at bundle
+# time — a fresh clone fails without it). Renders overwrite it locally;
+# that git noise is intentional. Restore with: git checkout remotion/src/props.json
 
 # Test videos at repo root
 /*.mp4

@@ -1,5 +1,7 @@
 import { AbsoluteFill, Composition, staticFile } from "remotion";
 import { EditedVideo, type EditedVideoProps } from "./EditedVideo";
+import { ShortVideo } from "./ShortVideo";
+import { ShortVideoPropsSchema } from "./types";
 import { StyleShowcase } from "./StyleShowcase";
 import { DarkGridBg, LightGridBg } from "./templates/Backgrounds";
 import props from "./props.json";
@@ -17,6 +19,39 @@ const typed = props as unknown as EditedVideoProps & {
 export const Root: React.FC = () => {
   return (
     <>
+      {/* Shorts pipeline composition (render.mjs selects id "ShortVideo").
+          The video-edit engine merge dropped this registration — the shorts
+          render step 9 fails without it. */}
+      <Composition
+        id="ShortVideo"
+        component={ShortVideo}
+        width={1080}
+        height={1920}
+        fps={30}
+        durationInFrames={30 * 30}
+        schema={ShortVideoPropsSchema}
+        defaultProps={{
+          clipSrc: "",
+          sourceWidth: 1920,
+          sourceHeight: 1080,
+          crop: { x: 0, y: 0, w: 607, h: 1080 },
+          cropKeyframes: [],
+          captions: [],
+          captionStyle: "bold" as const,
+          hookLine1: "",
+          hookLine2: "",
+          showProgressBar: true,
+          durationInSeconds: 30,
+        }}
+        calculateMetadata={({ props }) => {
+          return {
+            durationInFrames: Math.ceil(props.durationInSeconds * 30),
+            fps: 30,
+            width: 1080,
+            height: 1920,
+          };
+        }}
+      />
       <Composition
         id="EditedVideo"
         component={EditedVideo}

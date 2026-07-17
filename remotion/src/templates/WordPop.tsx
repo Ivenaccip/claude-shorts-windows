@@ -1,5 +1,7 @@
 import {
   AbsoluteFill,
+  continueRender,
+  delayRender,
   interpolate,
   useCurrentFrame,
   useVideoConfig,
@@ -57,22 +59,29 @@ export type WordPopProps = {
 };
 
 // Stack-of-stacks: try Google Fonts Caveat first (loaded via injected link),
-// then macOS-native handwriting fonts, then the generic cursive fallback.
+// then native handwriting fonts (Bradley Hand on macOS, Brush Script MT on
+// Windows), then the generic cursive fallback.
 const SCRIPT_FONT_STACK =
   "'Caveat', 'Bradley Hand', 'Bradley Hand ITC', 'Brush Script MT', 'Snell Roundhand', cursive";
 const BLOCK_FONT_STACK = "'Space Grotesk', system-ui, sans-serif";
 
-// Inject Google Fonts <link> exactly once per page load. The script-font
-// span uses Caveat at 700; if the font hasn't fetched yet by the first
-// few frames, the fallback ("Bradley Hand" on macOS) reads similarly
-// enough that no flash-of-unstyled-text is visible at video pace.
+// Inject Google Fonts <link> exactly once per page load, and hold the render
+// (delayRender) until Caveat is actually usable — otherwise the first frames
+// get captured with the platform fallback, which on Windows looks nothing
+// like Caveat. If the fetch fails (offline), release the render and let the
+// fallback stack do its job.
 let __wordPopFontInjected = false;
 const ensureScriptFontLoaded = () => {
   if (typeof document === "undefined" || __wordPopFontInjected) return;
   __wordPopFontInjected = true;
+  const handle = delayRender("Loading Caveat font (WordPop)");
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = "https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=block";
+  link.onload = () => {
+    document.fonts.load("700 100px Caveat").finally(() => continueRender(handle));
+  };
+  link.onerror = () => continueRender(handle);
   document.head.appendChild(link);
 };
 

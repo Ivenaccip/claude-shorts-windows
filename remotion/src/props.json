@@ -1,0 +1,14 @@
+{
+  "videoSrc": "",
+  "broll": [],
+  "zoom": [],
+  "captions": [],
+  "styles": {
+    "kenBurnsIntensity": 1,
+    "zoomEaseFrames": 12
+  },
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "durationInFrames": 300
+}

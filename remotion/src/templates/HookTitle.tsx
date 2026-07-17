@@ -1,6 +1,8 @@
 import {
   AbsoluteFill,
   Img,
+  continueRender,
+  delayRender,
   interpolate,
   spring,
   staticFile,
@@ -67,13 +69,22 @@ const SCRIPT_FONT_STACK =
   "'Caveat', 'Bradley Hand', 'Bradley Hand ITC', 'Brush Script MT', 'Snell Roundhand', cursive";
 const BLOCK_FONT_STACK = "'Space Grotesk', system-ui, sans-serif";
 
+// Hold the render until Caveat is usable — on Windows the platform fallback
+// (Brush Script MT) looks nothing like it, and the first frames would get
+// captured with the wrong font. On fetch failure (offline), release and let
+// the fallback stack take over.
 let __hookFontInjected = false;
 const ensureScriptFontLoaded = () => {
   if (typeof document === "undefined" || __hookFontInjected) return;
   __hookFontInjected = true;
+  const handle = delayRender("Loading Caveat font (HookTitle)");
   const link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = "https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=block";
+  link.onload = () => {
+    document.fonts.load("700 100px Caveat").finally(() => continueRender(handle));
+  };
+  link.onerror = () => continueRender(handle);
   document.head.appendChild(link);
 };
 

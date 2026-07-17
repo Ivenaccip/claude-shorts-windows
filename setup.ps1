@@ -17,20 +17,50 @@ function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 function Ok($msg)   { Write-Host "  [OK] $msg" -ForegroundColor Green }
 function Warn($msg) { Write-Host "  [!] $msg" -ForegroundColor Yellow }
 
-# --- 1. Dependencias de sistema -------------------------------------------
+# --- 1. Dependencias de sistema (auto-instala con winget) ------------------
 Step "Dependencias de sistema"
+
+# Tras un winget install, el PATH nuevo no existe en este proceso: refrescarlo
+function Refresh-Path {
+    $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                [Environment]::GetEnvironmentVariable('Path', 'User')
+}
+
+# winget deja ffmpeg bajo WinGet\Links en el PATH de usuario; algunos paquetes
+# (Python, Node) requieren ademas sus rutas propias que ya vienen en el PATH.
+$deps = @(
+    @{ cmd = 'ffmpeg'; id = 'Gyan.FFmpeg' },
+    @{ cmd = 'jq';     id = 'jqlang.jq' },
+    @{ cmd = 'python'; id = 'Python.Python.3.10' },
+    @{ cmd = 'node';   id = 'OpenJS.NodeJS.LTS' }
+)
+
 $missing = @()
-foreach ($tool in @('ffmpeg', 'jq')) {
-    if (Get-Command $tool -ErrorAction SilentlyContinue) {
-        Ok "$tool en PATH"
+foreach ($dep in $deps) {
+    if (Get-Command $dep.cmd -ErrorAction SilentlyContinue) {
+        Ok "$($dep.cmd) en PATH"
+        continue
+    }
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        Warn "Falta $($dep.cmd) y no hay winget. Instalalo a mano: $($dep.id)"
+        $missing += $dep.cmd
+        continue
+    }
+    Write-Host "  Falta $($dep.cmd) - instalando con winget ($($dep.id))..."
+    winget install --id $dep.id --accept-source-agreements --accept-package-agreements --silent
+    Refresh-Path
+    if (Get-Command $dep.cmd -ErrorAction SilentlyContinue) {
+        Ok "$($dep.cmd) instalado"
     } else {
-        $missing += $tool
+        Warn "$($dep.cmd) instalado pero no visible en este proceso."
+        $missing += $dep.cmd
     }
 }
-if ($missing -contains 'ffmpeg') { Warn "Falta ffmpeg. Instalar con: winget install --id Gyan.FFmpeg" }
-if ($missing -contains 'jq')     { Warn "Falta jq. Instalar con: winget install --id jqlang.jq" }
+
 if ($missing.Count -gt 0) {
-    Warn "Instala lo que falta y vuelve a correr setup.ps1"
+    Warn "Cierra esta terminal, abre una nueva y vuelve a correr setup.ps1"
+    Warn "(el PATH nuevo solo aparece en terminales nuevas). Pendientes: $($missing -join ', ')"
+    exit 1
 }
 
 # --- 2. Venv de Python -----------------------------------------------------
@@ -162,6 +192,3 @@ Write-Host "  Config:   $ConfigFile"
 Write-Host "  Skill:    $SkillLink (junction)"
 Write-Host ""
 Write-Host "  Actualizar la skill = git pull en el repo. Nada mas."
-if ($missing.Count -gt 0) {
-    Warn "Pendiente: instalar $($missing -join ', ') y re-correr setup.ps1"
-}

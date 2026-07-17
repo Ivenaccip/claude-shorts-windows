@@ -32,30 +32,40 @@ Claude Code te guía por un pipeline interactivo de 10 pasos:
 
 ## Requisitos
 
-- **Windows 10/11** con [Git para Windows](https://git-scm.com/download/win) (incluye Git Bash)
-- **FFmpeg** — `winget install --id Gyan.FFmpeg`
-- **jq** — `winget install --id jqlang.jq`
-- **Python 3.10+**
-- **Node.js 18+**
-- **Claude Code** (CLI)
-- **GPU NVIDIA** recomendada (transcripción CUDA + codificación NVENC; sin GPU funciona en CPU)
+Solo necesitas tres cosas — el resto (FFmpeg, jq, Python, Node.js) lo instala `setup.ps1` automáticamente con winget:
+
+- **Windows 10/11**
+- **[Git para Windows](https://git-scm.com/download/win)** (incluye Git Bash)
+- **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** (CLI)
+
+GPU NVIDIA recomendada (transcripción CUDA + codificación NVENC); sin GPU funciona en CPU.
 
 ## Instalación
 
+Abre una terminal (PowerShell) y pídele a Claude Code que lo haga todo:
+
 ```powershell
-# Clona el repositorio
+claude "Instala la skill claude-shorts-windows: clona https://github.com/Ivenaccip/claude-shorts-windows.git en mi carpeta de usuario y ejecuta su setup.ps1. Instala cualquier requisito que falte y si algo falla, resuélvelo."
+```
+
+Eso es todo. Claude clona el repo, corre el instalador y verifica que quedó funcionando. Al terminar tendrás la skill `/shorts` disponible.
+
+<details>
+<summary><b>Instalación manual (sin Claude Code de por medio)</b></summary>
+
+```powershell
 git clone https://github.com/Ivenaccip/claude-shorts-windows.git
 cd claude-shorts-windows
-
-# Un solo paso: instala TODO (venv de Python, Remotion, config y la skill)
 powershell -ExecutionPolicy Bypass -File setup.ps1
 ```
 
-Eso es todo. No hay segundo paso de instalación.
+Si `setup.ps1` instala requisitos nuevos (FFmpeg, Python, etc.), puede pedirte cerrar la terminal, abrir una nueva y volver a correrlo — el PATH nuevo solo aparece en terminales nuevas.
+
+</details>
 
 ### Qué hace `setup.ps1`
 
-- Verifica las dependencias de sistema (FFmpeg, jq) y sugiere el comando `winget` exacto si falta algo
+- Detecta e **instala automáticamente** las dependencias que falten vía winget: FFmpeg, jq, Python 3.10 y Node.js LTS
 - Crea un entorno virtual de Python en `%USERPROFILE%\.shorts-skill\` e instala dependencias **pinneadas** (`faster-whisper`, `mediapipe`, `numpy`, `opencv-python`)
 - Instala PyTorch (variante CUDA si detecta `nvidia-smi`, CPU si no)
 - Ejecuta `npm ci` en `remotion/` (solo cuando cambia el lockfile — reproducible e idempotente)

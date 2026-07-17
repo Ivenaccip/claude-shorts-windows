@@ -1,0 +1,17 @@
+# Los .sh DEBEN salir con LF en el checkout: Git Bash falla con CRLF
+# en shebangs y heredocs. Los .ps1 van con CRLF (nativo de Windows).
+* text=auto
+*.sh text eol=lf
+*.py text eol=lf
+*.ps1 text eol=crlf
+*.mjs text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.png binary
+*.jpeg binary
+*.jpg binary
+*.mp4 binary
+*.mp3 binary
+*.wav binary

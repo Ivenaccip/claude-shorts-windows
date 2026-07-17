@@ -35,52 +35,54 @@ if [ -d "$OUTPUT_DIR" ]; then
     fi
 fi
 
+# Central config written by setup.ps1 (single source of truth for paths)
+CONFIG="${APPDATA:-$HOME/.config}/claude-shorts/env.json"
+PYTHON=""
+SHORTS_TMP_DIR=""
+if [ -f "$CONFIG" ] && command -v jq &>/dev/null; then
+    PYTHON="$(jq -r .python "$CONFIG")"
+    SHORTS_TMP_DIR="$(jq -r .tmp "$CONFIG")"
+fi
+
 # Check disk space (estimate 3x input size for temp + output)
 if [ -f "$INPUT" ]; then
     INPUT_SIZE_KB=$(du -k "$INPUT" | cut -f1)
     NEEDED_KB=$((INPUT_SIZE_KB * 3))
-    AVAIL_KB=$(df -k /tmp 2>/dev/null | tail -1 | awk '{print $4}')
+    TMP_CHECK="${SHORTS_TMP:-${SHORTS_TMP_DIR:-${TEMP:-/tmp}}}"
+    AVAIL_KB=$(df -k "$TMP_CHECK" 2>/dev/null | tail -1 | awk '{print $4}')
     if [ -n "$AVAIL_KB" ] && [ "$AVAIL_KB" -lt "$NEEDED_KB" ]; then
-        WARNINGS+=("Low disk space on /tmp: ${AVAIL_KB}KB available, estimated ${NEEDED_KB}KB needed")
+        WARNINGS+=("Low disk space on $TMP_CHECK: ${AVAIL_KB}KB available, estimated ${NEEDED_KB}KB needed")
     fi
 fi
 
 # Check FFmpeg
 if ! command -v ffmpeg &>/dev/null; then
-    ERRORS+=("ffmpeg not found — install with: sudo apt install ffmpeg")
+    ERRORS+=("ffmpeg not found — run setup.ps1, or: winget install --id Gyan.FFmpeg")
 fi
 
 # Check ffprobe
 if ! command -v ffprobe &>/dev/null; then
-    ERRORS+=("ffprobe not found — install with: sudo apt install ffmpeg")
+    ERRORS+=("ffprobe not found — run setup.ps1, or: winget install --id Gyan.FFmpeg")
 fi
 
 # Check Node.js
 if ! command -v node &>/dev/null; then
-    ERRORS+=("Node.js not found — install with: nvm install 18")
+    ERRORS+=("Node.js not found — run setup.ps1, or: winget install --id OpenJS.NodeJS.LTS")
 fi
 
-# Check Python venv
-VENV=""
-if [ -d "$HOME/.video-skill" ]; then
-    VENV="$HOME/.video-skill"
-elif [ -d "$HOME/.shorts-skill" ]; then
-    VENV="$HOME/.shorts-skill"
-fi
-
-if [ -z "$VENV" ]; then
-    ERRORS+=("Python venv not found — run: bash setup.sh")
-else
-    # Check faster-whisper is installed
-    if ! "$VENV/bin/python3" -c "import faster_whisper" 2>/dev/null; then
-        ERRORS+=("faster-whisper not installed in $VENV — run: bash setup.sh")
-    fi
+# Check Python from central config (venv layout differs: Scripts/ on Windows, bin/ on Unix)
+if [ -z "$PYTHON" ]; then
+    ERRORS+=("Config not found at $CONFIG — run setup.ps1 from the repo root")
+elif [ ! -f "$PYTHON" ]; then
+    ERRORS+=("Python not found at $PYTHON — re-run setup.ps1")
+elif ! "$PYTHON" -c "import faster_whisper" 2>/dev/null; then
+    ERRORS+=("faster-whisper not installed — re-run setup.ps1")
 fi
 
 # Check Remotion node_modules
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && { pwd -W 2>/dev/null || pwd; })"
 if [ ! -d "$SCRIPT_DIR/remotion/node_modules" ]; then
-    ERRORS+=("Remotion dependencies not installed — run: bash setup.sh")
+    ERRORS+=("Remotion dependencies not installed — re-run setup.ps1")
 fi
 
 # Get video info
@@ -114,7 +116,7 @@ cat <<EOF
   "output_dir": "$OUTPUT_DIR",
   "duration": ${DURATION:-null},
   "resolution": "${RESOLUTION:-unknown}",
-  "venv": "${VENV:-none}",
+  "python": "${PYTHON:-none}",
   "errors": $ERROR_JSON,
   "warnings": $WARN_JSON
 }

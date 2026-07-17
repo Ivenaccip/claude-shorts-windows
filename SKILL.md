@@ -26,26 +26,26 @@ vertical videos with animated captions.
 
 ## Pre-Flight
 
-Before starting, locate the project root:
+All paths come from the central config written by `setup.ps1`. Load it first —
+run this block once and reuse the variables in every later step:
 ```bash
-# Try common locations in priority order
-SHORTS_ROOT=""
-for dir in "$HOME/.claude/skills/shorts" "$HOME/.claude/skills/claude-shorts" "$HOME/claude-shorts" "$(pwd)"; do
-    if [ -f "$dir/SKILL.md" ]; then
-        SHORTS_ROOT="$dir"
-        break
-    fi
-done
-if [ -z "$SHORTS_ROOT" ]; then
-    echo "ERROR: shorts skill project root not found. Please run from the project directory or install with install.sh"
+CONFIG="${APPDATA:-$HOME/.config}/claude-shorts/env.json"
+if [ ! -f "$CONFIG" ]; then
+    echo "ERROR: config not found at $CONFIG — run setup.ps1 from the repo first"
 fi
-```
-
-Set up the temp directory (configurable via `SHORTS_TMP` environment variable):
-```bash
-SHORTS_TMP="${SHORTS_TMP:-/tmp/claude-shorts}"
+SHORTS_ROOT="$(jq -r .root "$CONFIG")"
+PYTHON="$(jq -r .python "$CONFIG")"
+WHISPER_MODEL="$(jq -r .whisper_model "$CONFIG")"
+SHORTS_TMP="${SHORTS_TMP:-$(jq -r .tmp "$CONFIG")}"
 mkdir -p "$SHORTS_TMP/clips"
 ```
+
+Rules that keep this pipeline working on Windows (Git Bash) and Unix alike:
+- Always call Python as `"$PYTHON"` — never `python3`, never `source .../activate`
+  (Windows venvs use `Scripts/`, not `bin/`).
+- Never interpolate file paths inside `python -c "..."` one-liners — backslashes in
+  Windows paths break as unicode escapes. Pass paths as arguments instead.
+- All paths in `env.json` use forward slashes; keep it that way when composing paths.
 
 ## 10-Step Interactive Pipeline
 
@@ -72,12 +72,9 @@ Report to user: input duration, resolution, GPU status, estimated processing tim
 Transcribe with faster-whisper (GPU-accelerated, word-level timestamps).
 Audio extraction is handled internally by transcribe.py:
 ```bash
-VENV="$HOME/.video-skill"
-[ -d "$VENV" ] || VENV="$HOME/.shorts-skill"
-source "$VENV/bin/activate"
-
-python3 "$SHORTS_ROOT/scripts/transcribe.py" INPUT_FILE \
-    --output $SHORTS_TMP/transcript.json
+"$PYTHON" "$SHORTS_ROOT/scripts/transcribe.py" INPUT_FILE \
+    --model "$WHISPER_MODEL" \
+    --output "$SHORTS_TMP/transcript.json"
 ```
 
 Output is dual-format JSON:
@@ -90,8 +87,8 @@ Report to user: transcription time, word count, language detected.
 
 Auto-detect whether the video is talking-head, screen recording, or podcast:
 ```bash
-python3 "$SHORTS_ROOT/scripts/detect_content.py" INPUT_FILE \
-    --output $SHORTS_TMP/content_type.json
+"$PYTHON" "$SHORTS_ROOT/scripts/detect_content.py" INPUT_FILE \
+    --output "$SHORTS_TMP/content_type.json"
 ```
 
 Report detected type to user. Ask if they want to override.
@@ -166,7 +163,7 @@ After user selects segments:
 
 Write approved segments to:
 ```bash
-cat > $SHORTS_TMP/approved_segments.json << 'EOF'
+cat > "$SHORTS_TMP/approved_segments.json" << 'EOF'
 {
   "segments": [
     {
@@ -191,11 +188,11 @@ Snap segment boundaries to natural audio cut points so clips never cut mid-word
 or mid-sentence:
 
 ```bash
-python3 "$SHORTS_ROOT/scripts/snap_boundaries.py" \
-    --segments $SHORTS_TMP/approved_segments.json \
-    --transcript $SHORTS_TMP/transcript.json \
+"$PYTHON" "$SHORTS_ROOT/scripts/snap_boundaries.py" \
+    --segments "$SHORTS_TMP/approved_segments.json" \
+    --transcript "$SHORTS_TMP/transcript.json" \
     --input-video INPUT_FILE \
-    --output $SHORTS_TMP/snapped_segments.json
+    --output "$SHORTS_TMP/snapped_segments.json"
 ```
 
 The script:
@@ -218,15 +215,15 @@ Extract each snapped segment via FFmpeg stream copy (near-instant, lossless).
 Use the snapped start/end times from `$SHORTS_TMP/snapped_segments.json`:
 ```bash
 ffmpeg -y -ss START -to END -i INPUT_FILE -c copy \
-    $SHORTS_TMP/clips/clip_01.mp4
+    "$SHORTS_TMP/clips/clip_01.mp4"
 ```
 
 Compute reframe coordinates for each clip:
 ```bash
-python3 "$SHORTS_ROOT/scripts/compute_reframe.py" \
-    --clips-dir $SHORTS_TMP/clips/ \
+"$PYTHON" "$SHORTS_ROOT/scripts/compute_reframe.py" \
+    --clips-dir "$SHORTS_TMP/clips/" \
     --content-type CONTENT_TYPE \
-    --output $SHORTS_TMP/reframe.json
+    --output "$SHORTS_TMP/reframe.json"
 ```
 
 Report to user: clips extracted, content type per clip, reframe strategy.
@@ -236,12 +233,12 @@ Report to user: clips extracted, content type per clip, reframe strategy.
 Render all snapped segments with the selected caption style:
 ```bash
 node "$SHORTS_ROOT/remotion/render.mjs" \
-    --segments $SHORTS_TMP/snapped_segments.json \
-    --reframe $SHORTS_TMP/reframe.json \
-    --captions $SHORTS_TMP/transcript_cleaned.json \
+    --segments "$SHORTS_TMP/snapped_segments.json" \
+    --reframe "$SHORTS_TMP/reframe.json" \
+    --captions "$SHORTS_TMP/transcript_cleaned.json" \
     --style STYLE \
-    --clips-dir $SHORTS_TMP/clips/ \
-    --output-dir $SHORTS_TMP/render/
+    --clips-dir "$SHORTS_TMP/clips/" \
+    --output-dir "$SHORTS_TMP/render/"
 ```
 
 The render script:
@@ -257,7 +254,7 @@ Report progress to user as each segment renders.
 Export rendered shorts with platform-specific encoding:
 ```bash
 bash "$SHORTS_ROOT/scripts/export.sh" \
-    --input-dir $SHORTS_TMP/render/ \
+    --input-dir "$SHORTS_TMP/render/" \
     --platform PLATFORM \
     --output-dir ./shorts/
 ```
@@ -318,18 +315,19 @@ These defaults work well for most content. Offer alternatives when the user has 
 
 | Parameter | Default | Flag/Var | When to change |
 |-----------|---------|----------|----------------|
-| Whisper model | `large-v3` | `--model small` | Low VRAM (< 6 GB) |
+| Whisper model | from `env.json` (`large-v3` with GPU, `small` without) | `--model small` | Low VRAM (< 6 GB) |
 | Screen zoom | `0.55` | `--zoom 0.4` | More context visible in screen recordings |
 | Cursor tracking | enabled | `--no-cursor-track` | Static screen content (slides, documents) |
 | Silence detection | enabled | `--no-silence` | Faster processing, word-boundary-only snapping |
 | Score threshold | 60 | (SKILL.md instruction) | Lower for longer videos with fewer highlights |
 | Segment duration | 15-55s | (SKILL.md instruction) | Adjust per platform (TikTok prefers 21-34s) |
-| Temp directory | `/tmp/claude-shorts/` | `SHORTS_TMP` env var | Systems with limited /tmp space |
+| Temp directory | from `env.json` (`%TEMP%/claude-shorts` on Windows) | `SHORTS_TMP` env var | Limited disk space on the temp drive |
 | Export platform | `all` | `--platform youtube` | Single-platform targeting |
 
 ## Error Recovery
 
-- **Transcription fails**: Check venv activation, try `--model small` for less VRAM
-- **Remotion render fails**: Check `cd remotion && npm install`, verify node_modules exists
+- **Transcription fails**: Verify `"$PYTHON" -c "import faster_whisper"` works; if not, re-run `setup.ps1`. Try `--model small` for less VRAM.
+- **Remotion render fails**: Verify `$SHORTS_ROOT/remotion/node_modules` exists; if not, re-run `setup.ps1` (it runs `npm ci`)
 - **Export fails**: Check FFmpeg version (`ffmpeg -version`), try CPU encoding if NVENC fails
-- **Out of disk space**: Clean $SHORTS_TMP/, check with `df -h /tmp`
+- **Out of disk space**: Clean `$SHORTS_TMP/`, check with `df -h "$SHORTS_TMP"`
+- **Config missing**: If `env.json` doesn't exist, re-run `setup.ps1` from the repo root
